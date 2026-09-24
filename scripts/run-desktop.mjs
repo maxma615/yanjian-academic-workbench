@@ -1,0 +1,14 @@
+import { spawn } from 'node:child_process';
+import { mkdir } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+const root = process.cwd();
+process.env.ELECTRON_CACHE = path.join(root, '.cache/electron');
+process.env.ACADEMIC_DESKTOP_DATA_DIR ||= path.join(root, '.dev-data/electron');
+process.env.TMPDIR = path.join(root, '.cache/desktop-tmp');
+await mkdir(process.env.TMPDIR, { recursive: true });
+const electron = createRequire(import.meta.url)('electron');
+const child = spawn(electron, [root], { stdio: 'inherit', env: process.env });
+child.on('exit', code => process.exit(code ?? 1));
+process.on('SIGINT', () => child.kill('SIGINT'));
+process.on('SIGTERM', () => child.kill('SIGTERM'));

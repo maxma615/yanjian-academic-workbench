@@ -1,0 +1,64 @@
+# Desktop packaging contract for the Windows 11 target and the development Mac.
+# The desktop entry points are bundled by scripts/build-desktop.mjs, so the
+# packaged app does not need the source tree or a production node_modules tree.
+appId: local.yanjian.academicworkbench
+productName: YanJian Academic Workbench
+copyright: Copyright © 2026
+asar: true
+compression: normal
+directories:
+  output: release
+  buildResources: build-resources
+files:
+  - dist/**/*
+  - desktop-dist/**/*
+  - package.json
+  - '!**/.dev-data/**'
+  - '!**/.test-data/**'
+  - '!**/.cache/**'
+  - '!node_modules/**'
+  - '!**/test-results/**'
+  - '!**/playwright-report/**'
+  - '!**/*.zip'
+  - '!**/*.bak'
+  - '!**/.env*'
+extraMetadata:
+  main: desktop-dist/main.cjs
+  # Every runtime dependency used by the main process is bundled by esbuild.
+  # An empty production dependency map prevents electron-builder from copying
+  # the development node_modules tree into app.asar.
+  dependencies: {}
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  artifactName: YanJian-Academic-Workbench-${version}-${os}-${arch}.${ext}
+  requestedExecutionLevel: asInvoker
+  signAndEditExecutable: false
+  forceCodeSigning: false
+nsis:
+  # Per-user installation keeps the default install location out of Program
+  # Files and does not require elevation. Keep the application data directory
+  # when the user uninstalls the application.
+  perMachine: false
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+mac:
+  target:
+    - target: dir
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  category: public.app-category.education
+  artifactName: YanJian-Academic-Workbench-${version}-${os}-${arch}.${ext}
+  identity: null
+publish: null

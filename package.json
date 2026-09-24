@@ -1,0 +1,50 @@
+{
+  "name": "academic-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "node scripts/run-server.mjs",
+    "build": "tsc --noEmit && vite build",
+    "start": "node scripts/run-server.mjs --production",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "typecheck": "tsc --noEmit",
+    "desktop:build": "npm run build && node scripts/build-desktop.mjs",
+    "desktop:dev": "npm run desktop:build && node scripts/run-desktop.mjs",
+    "package:windows": "npm run build && node scripts/package-desktop.mjs --win --x64",
+    "package:mac": "npm run build && node scripts/package-desktop.mjs --mac --arm64",
+    "test:desktop": "node scripts/run-desktop-tests.mjs"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "fflate": "^0.8.2",
+    "lucide-react": "^0.468.0",
+    "proper-lockfile": "^4.1.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/supertest": "^6.0.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "44.4.3",
+    "electron-builder": "26.15.3",
+    "esbuild": "0.28.2",
+    "supertest": "^7.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0",
+    "vitest": "^4.1.11"
+  },
+  "main": "desktop-dist/main.cjs"
+}
