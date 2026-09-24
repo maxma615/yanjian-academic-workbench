@@ -26,7 +26,7 @@ for (;;) {
 }
 const address = server.address();
 if (address && typeof address !== 'string') port = address.port;
-console.log(`研间开发预览：http://127.0.0.1:${port}`);
+console.log(`研笺开发预览：http://127.0.0.1:${port}`);
 console.log(`资料目录：${instance.getWorkspace().root}`);
 console.log('验证范围：当前开发机；Windows 11 安装与系统集成尚待实机验收。');
 let exiting = false;

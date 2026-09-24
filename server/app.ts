@@ -107,7 +107,7 @@ export async function createApp(directory: string, options: { controlDirectory?:
   app.post('/api/index/rebuild', route(async (_req, res) => { await workspace.rebuildIndex(); res.json({ ok: true }); }));
   app.post('/api/backup', route(async (_req, res) => {
     const bytes = await workspace.exclusive(() => createBackup(workspace.root));
-    verifyBackup(bytes); attachment(res, bytes, `研间-完整备份-${new Date().toISOString().slice(0, 10)}.zip`, 'application/zip');
+    verifyBackup(bytes); attachment(res, bytes, `研笺-完整备份-${new Date().toISOString().slice(0, 10)}.zip`, 'application/zip');
   }));
   app.post('/api/restore/inspect', route(async (req, res) => { res.json({ manifest: verifyBackup(bytesFromBody(req.body)).manifest }); }));
   app.post('/api/restore/target', route(async (req, res) => { if (options.nativeDialogs) throw new AppError('请通过系统对话框选择恢复目录', 403); workspace.assertWritable(); if (typeof req.body?.path !== 'string') throw new AppError('请选择恢复空目录'); res.json(await restoreManager.selectTarget(req.body.path)); }));
