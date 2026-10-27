@@ -77,8 +77,20 @@ it('fails closed when the system cipher is unavailable and supports a safe slash
   const { app } = await setup(true); let stores = 0;
   const options = { credentials: { getToken: async () => undefined, setToken: async () => { stores++; }, clear: async () => undefined } };
   const unavailable = new SyncRuntime({ ...options, credentialsAvailable: () => false });
-  expect((await unavailable.status(app.getWorkspace())).available).toBe(false);
+  expect((await unavailable.status(app.getWorkspace())).available).toBe(true);
   await expect(unavailable.connect(app.getWorkspace(), connection)).rejects.toThrow('系统安全存储'); expect(stores).toBe(0);
   const available = new SyncRuntime(options);
   expect((await available.connect(app.getWorkspace(), { ...connection, destination: { ...connection.destination, branch: 'research/notes' } })).destination?.branch).toBe('research/notes');
+});
+
+it('reads local sync status without probing the operating-system key store', async () => {
+  const { app } = await setup(true);
+  const probe = vi.fn(() => { throw new Error('Keychain may require interactive authorization'); });
+  const getToken = vi.fn(async () => undefined), setToken = vi.fn(async () => undefined);
+  const runtime = new SyncRuntime({ credentials: { getToken, setToken }, credentialsAvailable: probe });
+  const status = await runtime.status(app.getWorkspace());
+  expect(status).toMatchObject({ available: true, enabled: false, status: 'disabled' });
+  expect(probe).not.toHaveBeenCalled();
+  expect(getToken).not.toHaveBeenCalled();
+  expect(setToken).not.toHaveBeenCalled();
 });

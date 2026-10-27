@@ -1,5 +1,7 @@
 import type { BackupManifest, Entity, EntityInput, SaveResult, WorkspaceState } from '../shared/types';
 import type { SyncDestinationView, SyncView } from '../shared/sync-ui';
+import type { TranslationConfig, TranslationJob, TranslationSettings, TranslationSummary } from '../shared/translation';
+import type { PaperMetadataSuggestion, PaperPdfImportRequest } from '../shared/paper-import';
 
 let token: string | null = null;
 
@@ -52,8 +54,14 @@ export function deleteEntity(id: string, expectedRevision: number) {
 export function importPdf(id: string, payload: { name: string; base64: string; expectedRevision: number }) {
   return request<SaveResult>(`/api/papers/${encodeURIComponent(id)}/pdf`, { method: 'POST', body: JSON.stringify(payload) });
 }
-export async function getPdf(id: string, attachmentId: string) {
-  return request<Blob>(`/api/papers/${encodeURIComponent(id)}/pdf/${encodeURIComponent(attachmentId)}`);
+export function inspectPaperPdf(payload: { name: string; base64: string; expectedConfig?: TranslationConfig }, signal?: AbortSignal) {
+  return request<PaperMetadataSuggestion>('/api/papers/inspect-pdf', { method: 'POST', body: JSON.stringify(payload), signal });
+}
+export function importPaperPdf(payload: PaperPdfImportRequest) {
+  return request<SaveResult>('/api/papers/import-pdf', { method: 'POST', body: JSON.stringify(payload) });
+}
+export async function getPdf(id: string, attachmentId: string, signal?: AbortSignal) {
+  return request<Blob>(`/api/papers/${encodeURIComponent(id)}/pdf/${encodeURIComponent(attachmentId)}`, { signal });
 }
 export async function exportEntity(id: string) { return request<Blob>(`/api/entities/${encodeURIComponent(id)}/export`); }
 export function rebuildIndex() { return request<{ ok: true }>('/api/index/rebuild', { method: 'POST' }); }
@@ -66,6 +74,20 @@ export function connectSync(destination: SyncDestinationView, token: string) { r
 export function runSync() { return request<SyncView>('/api/sync/run', { method: 'POST' }); }
 export function disconnectSync() { return request<SyncView>('/api/sync/disconnect', { method: 'POST' }); }
 export function resolveSync(id: string, choice: 'local' | 'remote' | 'edit', editedText?: string) { return request<SyncView>('/api/sync/resolve', { method: 'POST', body: JSON.stringify({ id, choice, editedText }) }); }
+
+export function translationSettings() { return request<TranslationSettings>('/api/translation/settings'); }
+export function saveTranslationSettings(config: TranslationConfig & { apiKey?: string; clearApiKey?: boolean }) {
+  return request<TranslationSettings>('/api/translation/settings', { method: 'PUT', body: JSON.stringify(config) });
+}
+export function testTranslationConnection() { return request<{ ok: true }>('/api/translation/test', { method: 'POST' }); }
+export function listTranslations() { return request<{ jobs: TranslationSummary[] }>('/api/translations'); }
+export function createTranslation(paperId: string, attachmentId: string) {
+  return request<TranslationJob>('/api/translations', { method: 'POST', body: JSON.stringify({ paperId, attachmentId }) });
+}
+export function getTranslation(id: string) { return request<TranslationJob>(`/api/translations/${encodeURIComponent(id)}`); }
+export function startTranslation(id: string, expectedConfig: TranslationConfig) { return request<TranslationJob>(`/api/translations/${encodeURIComponent(id)}/start`, { method: 'POST', body: JSON.stringify({ authorized: true, expectedConfig }) }); }
+export function pauseTranslation(id: string) { return request<TranslationJob>(`/api/translations/${encodeURIComponent(id)}/pause`, { method: 'POST' }); }
+export function exportTranslation(id: string) { return request<Blob>(`/api/translations/${encodeURIComponent(id)}/export`); }
 
 export function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);

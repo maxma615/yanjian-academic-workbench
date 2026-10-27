@@ -24,6 +24,7 @@
     "express": "^5.1.0",
     "fflate": "^0.8.2",
     "lucide-react": "^0.468.0",
+    "pdfjs-dist": "6.4.299",
     "proper-lockfile": "^4.1.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -37,7 +38,7 @@
     "@types/react-dom": "^19.0.0",
     "@types/supertest": "^6.0.3",
     "@vitejs/plugin-react": "^5.0.0",
-    "electron": "44.4.3",
+    "electron": "44.9.3",
     "electron-builder": "26.15.3",
     "esbuild": "0.28.2",
     "supertest": "^7.0.0",

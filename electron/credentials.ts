@@ -10,8 +10,10 @@ export interface SecureStringCipher {
 
 /** Stores only platform-encrypted bytes in the application's control directory. */
 export class EncryptedCredentialStore {
-  private readonly file = 'github-credential.bin';
-  constructor(private readonly directory: string, private readonly cipher: SecureStringCipher) {}
+  private readonly file: string;
+  constructor(private readonly directory: string, private readonly cipher: SecureStringCipher, purpose: 'github' | 'translation' = 'github') {
+    this.file = purpose === 'translation' ? 'translation-credential.bin' : 'github-credential.bin';
+  }
   private assertSecure() {
     if (!this.cipher.isEncryptionAvailable() || this.cipher.getSelectedStorageBackend?.() === 'basic_text') throw new AppError('系统安全存储不可用，尚未保存任何连接凭据');
   }
@@ -21,7 +23,7 @@ export class EncryptedCredentialStore {
     this.assertSecure();
     const bytes = await readSafe(this.directory, this.file);
     try { return this.cipher.decryptString(bytes); }
-    catch { throw new AppError('无法解密现有连接凭据，请重新连接私人仓库'); }
+    catch { throw new AppError('无法解密现有连接凭据，请重新填写连接设置'); }
   }
   async set(value: string): Promise<void> {
     this.assertSecure();

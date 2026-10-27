@@ -46,7 +46,9 @@ export class SyncRuntime {
       return { id, path: original, localText: text(snapshot.files.get(original)), remoteText: text(snapshot.files.get(`conflicts/${id}/${original}`)) };
     });
     const last = this.results.get(workspace.root);
-    return { available: this.available(), enabled: config.enabled, credentialCleanupPending: config.credentialCleanupPending, destination: config.destination,
+    // Merely opening local settings must not prompt for or block on the OS key store.
+    // Actual connection still verifies secure storage before writing credentials.
+    return { available: Boolean(this.options.credentials?.setToken), enabled: config.enabled, credentialCleanupPending: config.credentialCleanupPending, destination: config.destination,
       status: conflicts.length ? 'conflict' : !config.enabled ? 'disabled' : last?.status ?? 'connected',
       message: config.credentialCleanupPending ? '同步已停用，但凭据尚待清除。请重试清除凭据' : conflicts.length ? `有 ${conflicts.length} 项冲突等待处理` : last?.message ?? (config.enabled ? '已配置私人仓库，点击立即同步开始' : 'GitHub 同步未启用，资料保存在本机'), conflicts };
   }

@@ -24,6 +24,17 @@ it('stores only encrypted credentials outside the workspace and disconnect remov
   expect(await new EncryptedCredentialStore(root, safe).get()).toBe(token);
   await store.delete(); expect(await store.get()).toBeNull(); expect(await fs.readdir(root)).toEqual([]);
 });
+it('keeps translation API keys separate from the GitHub credential', async () => {
+  const root = await fixture(), safe = cipher();
+  const github = new EncryptedCredentialStore(root, safe);
+  const translation = new EncryptedCredentialStore(root, safe, 'translation');
+  await github.set('github-fixture-token');
+  await translation.set('model-fixture-key');
+  expect(await github.get()).toBe('github-fixture-token');
+  expect(await translation.get()).toBe('model-fixture-key');
+  await translation.delete();
+  expect(await github.get()).toBe('github-fixture-token');
+});
 it('fails closed when secure storage is unavailable or uses a plaintext backend', async () => {
   const root = await fixture(), safe = cipher();
   await expect(new EncryptedCredentialStore(root, { ...safe, isEncryptionAvailable: () => false }).set('test')).rejects.toThrow(/安全存储/);

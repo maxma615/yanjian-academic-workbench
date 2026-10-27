@@ -30,11 +30,43 @@ async function nav(page: Page, label: string) {
 }
 async function save(page: Page) { await page.getByRole('button', { name: '保存到本地', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0); }
 
+test('papers open their reader from the library, search and overview with working deep links and browser history', async ({ page }) => {
+  await nav(page, '文献'); await page.getByRole('button', { name: '手动录入', exact: true }).click();
+  await page.getByLabel('标题', { exact: true }).fill('阅读入口验收'); await save(page);
+  await page.locator('.row-main').filter({ hasText: '阅读入口验收' }).click();
+  await expect(page).toHaveURL(/#papers\/[^/]+$/);
+  await expect(page.getByRole('heading', { level: 1, name: '阅读入口验收', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('navigation').getByRole('button', { name: '文献翻译', exact: true })).toHaveCount(0);
+  const deepLink = page.url();
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: '阅读入口验收', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '返回文献库', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '文献库', exact: true })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('heading', { level: 1, name: '阅读入口验收', exact: true })).toBeVisible();
+  await page.goForward();
+  await page.getByRole('button', { name: '编辑阅读入口验收', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByLabel('作者', { exact: true }).fill('入口研究者'); await save(page);
+  await nav(page, '概览'); await page.locator('.recent-item').filter({ hasText: '阅读入口验收' }).click();
+  await expect(page).toHaveURL(deepLink);
+  await page.getByLabel('搜索', { exact: true }).fill('阅读入口验收');
+  await page.locator('.row-main').filter({ hasText: '阅读入口验收' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: '阅读入口验收', exact: true })).toBeVisible();
+  await expect(page.getByLabel('搜索', { exact: true })).toHaveValue('');
+  await page.goto(`${url}/#translations`);
+  await expect(page).toHaveURL(`${url}/#papers`);
+  await expect(page.getByRole('heading', { name: '文献库', exact: true })).toBeVisible();
+  await page.goto(`${url}/#papers/00000000-0000-4000-8000-000000000000`);
+  await expect(page.getByRole('heading', { name: '这篇文献暂时不可用', exact: true })).toBeVisible();
+});
+
 test('offline research loop persists actual papers, PDF, linked notes, logs, tasks and events after process restart', async ({ page }) => {
   const requests: string[] = []; page.on('request', req => { if (req.url().startsWith('http') && !req.url().startsWith(url)) requests.push(req.url()); });
-  await nav(page, '文献'); await page.getByRole('button', { name: '录入文献', exact: true }).click();
+  await nav(page, '文献'); await page.getByRole('button', { name: '手动录入', exact: true }).click();
   await page.getByLabel('标题', { exact: true }).fill('离线文献验收'); await page.getByLabel('作者', { exact: true }).fill('研究者'); await save(page);
-  await page.getByRole('button', { name: /离线文献验收.*研究者/ }).click();
+  await page.getByRole('button', { name: '编辑离线文献验收', exact: true }).click();
   await page.locator('input[type=file][accept="application/pdf"]').setInputFiles({ name: '研究 样例.pdf', mimeType: 'application/pdf', buffer: samplePdf() });
   // Import may keep the updated editor open; close it after the server confirms the upload.
   await expect(page.getByText('PDF 已保存到本地', { exact: true })).toBeVisible();
@@ -76,7 +108,7 @@ test('offline research loop persists actual papers, PDF, linked notes, logs, tas
   await expect(page.getByText(target, { exact: true })).toBeVisible();
   for (const [name, bytes] of verified.files) expect(await fs.readFile(path.join(target, name))).toEqual(Buffer.from(bytes));
   await stop(); await start(); await page.goto(url); await nav(page, '文献');
-  await page.locator('.row-main').filter({ hasText: '离线文献验收' }).click();
+  await page.getByRole('button', { name: '编辑离线文献验收', exact: true }).click();
   const restoredPdf = page.waitForEvent('download'); await page.locator('.attachment-row').getByRole('button', { name: '导出', exact: true }).click();
   const restoredPdfPath = path.join(root, 'restored.pdf'); await (await restoredPdf).saveAs(restoredPdfPath);
   expect(await fs.readFile(restoredPdfPath)).toEqual(samplePdf());

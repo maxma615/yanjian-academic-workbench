@@ -139,11 +139,21 @@ async function start(): Promise<void> {
     decryptString: bytes => safeStorage.decryptString(bytes),
     getSelectedStorageBackend: process.platform === 'linux' ? () => safeStorage.getSelectedStorageBackend() : undefined,
   });
+  const translationCredentialStore = new EncryptedCredentialStore(directories.control, {
+    isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+    encryptString: value => safeStorage.encryptString(value),
+    decryptString: bytes => safeStorage.decryptString(bytes),
+    getSelectedStorageBackend: process.platform === 'linux' ? () => safeStorage.getSelectedStorageBackend() : undefined,
+  }, 'translation');
   // The HTTP app remains the single business boundary. nativeDialogs tells the
   // host integration to keep restore path selection in this main process.
   appHandle = await createApp(directories.workspace, {
     controlDirectory: directories.control,
     nativeDialogs: true,
+    translation: {
+      credentials: translationCredentialStore,
+      credentialsAvailable: () => safeStorage.isEncryptionAvailable() && (process.platform !== 'linux' || safeStorage.getSelectedStorageBackend() !== 'basic_text'),
+    },
     sync: {
       credentialsAvailable: () => {
         if (!safeStorage.isEncryptionAvailable()) return false;
@@ -160,10 +170,11 @@ async function start(): Promise<void> {
   appHandle.app.use((_request, response, next) => {
     response.setHeader('Content-Security-Policy', [
       "default-src 'self'",
-      "script-src 'self'",
+      "script-src 'self' 'wasm-unsafe-eval'",
+      "worker-src 'self'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data:",
-      "font-src 'self' data:",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data: blob:",
       "connect-src 'self'",
       "object-src 'none'",
       "base-uri 'none'",

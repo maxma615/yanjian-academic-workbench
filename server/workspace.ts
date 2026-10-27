@@ -6,6 +6,8 @@ import lockfile from 'proper-lockfile';
 import { AppError, atomicWrite, exists, hash, listFiles, readSafe, safePath } from './fs-safe';
 import { entityPath, isUuid, normalizeEntity, parseEntity, searchable, serializeEntity } from './entities';
 import type { Entity, EntityInput, SaveResult, WorkspaceState } from '../src/shared/types';
+import type { PaperPdfImportRequest } from '../src/shared/paper-import';
+import { inspectPaperPdf } from './paper-metadata';
 
 type DeleteOperation = { id: string; entity: Entity; originalRelativePath: string; movedPath: string; snapshotPath: string; originalHash: string; deletedAt: string; completed: boolean };
 type MoveOperation = { from: string; to: string; content: string; sourceHash: string; completed: boolean; retainedSource?: boolean; recoveryWarning?: string };
@@ -48,7 +50,7 @@ export class Workspace {
         await ws.writeAtomically('workspace.json', JSON.stringify({ schemaVersion: 1, id: randomUUID(), createdAt: new Date().toISOString() }, null, 2));
       }
       const meta = JSON.parse((await readSafe(root, 'workspace.json')).toString());
-      if (meta.schemaVersion !== 1 || !isUuid(meta.id)) throw new AppError('资料版本不受支持，已拒绝写入；请使用匹配的应用版本');
+      if (![1, 2].includes(meta.schemaVersion) || !isUuid(meta.id)) throw new AppError('资料版本不受支持，已拒绝写入；请使用匹配的应用版本');
       ws.workspaceId = meta.id;
       if (!ws.readOnly) {
         await ws.recoverOperations();
@@ -92,6 +94,23 @@ export class Workspace {
     this.assertWritable();
   }
   private writeAtomically(relative: string, content: string | Uint8Array) { return atomicWrite(this.root, relative, content, () => this.assertWriterLock()); }
+  /** Internal adapter hook. The caller already owns exclusive(); commits retain lock checks. */
+  writeManagedFile(relative: string, content: string | Uint8Array) { return this.writeAtomically(relative, content); }
+  /** Additive capability gate; called inside exclusive() before the first translation. */
+  async prepareTranslationStorage() {
+    await this.assertWriterLock();
+    const metadata = JSON.parse((await readSafe(this.root, 'workspace.json')).toString());
+    if (metadata.id !== this.workspaceId || ![1, 2].includes(metadata.schemaVersion)) throw new AppError('资料版本或身份已变化，已拒绝写入');
+    if (metadata.schemaVersion === 2) return;
+    const { createBackup, verifyBackup } = await import('../src/backup/backup-service');
+    const backup = await createBackup(this.root);
+    const backupPath = 'state/format-upgrades/before-translations-v2.zip';
+    await this.writeAtomically(backupPath, backup);
+    verifyBackup(await readSafe(this.root, backupPath));
+    const current = JSON.parse((await readSafe(this.root, 'workspace.json')).toString());
+    if (JSON.stringify(current) !== JSON.stringify(metadata)) throw new AppError('升级期间资料格式发生变化，已停止写入');
+    await this.writeAtomically('workspace.json', JSON.stringify({ ...metadata, schemaVersion: 2 }, null, 2) + '\n');
+  }
   exclusive<T>(work: () => Promise<T>): Promise<T> {
     const next = this.queue.then(() => { this.assertWritable(); return work(); });
     this.queue = next.catch(() => undefined); return next;
@@ -103,7 +122,7 @@ export class Workspace {
     for (const prefix of ['papers', 'notes', 'logs', 'tasks', 'events']) {
       for (const file of await listFiles(this.root, prefix)) {
         if (this.recoveryExcludedPaths.has(file)) continue;
-        if (!(file.endsWith('.md') || /^(?:tasks|events)\/[^/]+\.json$/.test(file) || /^papers\/[^/]+\/metadata\.json$/.test(file))) continue;
+        if (!(/^(?:notes\/[^/]+|logs\/\d{4}\/[^/]+)\.md$/.test(file) || /^(?:tasks|events)\/[^/]+\.json$/.test(file) || /^papers\/[^/]+\/metadata\.json$/.test(file))) continue;
         const e = parseEntity((await readSafe(this.root, file)).toString('utf8'), file);
         if (e.attachments) e.attachments = await Promise.all(e.attachments.map(async a => {
           if (!isUuid(a.id) || a.path !== `papers/${e.id}/attachments/${a.id}.pdf`) throw new AppError('文献附件路径与身份不符');
@@ -141,6 +160,64 @@ export class Workspace {
     });
   }
   private withoutLocalState(e: Entity): Entity { return { ...e, ...(e.attachments ? { attachments: e.attachments.map(({ available, ...a }) => a) } : {}) }; }
+  /** Confirm one PDF as one paper. The staging directory is outside authoritative/backup paths. */
+  async importPaperPdf(input: PaperPdfImportRequest, bytes: Uint8Array, signal?: AbortSignal): Promise<SaveResult> {
+    return this.exclusive(async () => {
+      const canceled = () => { if (signal?.aborted) throw new AppError('已取消导入。', 409, 'PAPER_IMPORT_ABORTED'); };
+      canceled();
+      if (!input || !isUuid(input.requestId)) throw new AppError('导入请求标识无效。');
+      if (input.workspaceId !== this.workspaceId || input.dataDirectory !== this.root) throw new AppError('资料目录已经切换，请重新选择 PDF。', 409, 'WORKSPACE_CHANGED');
+      if (typeof input.name !== 'string' || input.name.length > 2048 || !/\.pdf$/i.test(input.name) || /[\u0000-\u001f\u007f]/.test(input.name)) throw new AppError('请选择有效的 PDF 文件。');
+      const name = input.name.split(/[\\/]/).at(-1)!;
+      const fields = input.fields;
+      if (!fields || typeof fields !== 'object' || Array.isArray(fields)) throw new AppError('请核对文献信息。');
+      for (const [key, max] of [['title', 500], ['authors', 1500], ['publication', 500], ['doi', 300], ['url', 2048]] as const) {
+        if (typeof fields[key] !== 'string' || fields[key].length > max) throw new AppError('文献信息格式或长度无效。');
+      }
+      const confirmed = { title: fields.title.trim(), authors: fields.authors.trim(), publication: fields.publication.trim(), doi: fields.doi.trim(), url: fields.url.trim(), ...(fields.year !== undefined ? { year: fields.year } : {}) };
+      const entity = normalizeEntity({ type: 'paper', ...confirmed });
+      const fingerprint = hash(JSON.stringify({ name, fields: confirmed, pdfHash: hash(bytes) }));
+      const id = input.requestId.toLowerCase();
+      const previous = (await this.list()).find(item => item.id === id);
+      if (previous) {
+        if (previous.type !== 'paper' || previous.pdfImportFingerprint !== fingerprint) throw new AppError('该导入请求已经用于其他内容，请重新选择 PDF。', 409, 'PAPER_IMPORT_CONFLICT');
+        return { entity: previous, savedAt: previous.updatedAt, indexStatus: this.indexStatus };
+      }
+      if (await exists(await safePath(this.root, `tombstones/paper/${id}.json`, true))) throw new AppError('这次导入的文献已被删除，请重新选择 PDF。', 409, 'PAPER_IMPORT_DELETED');
+      // Confirmation validates the actual PDF again, independently of any earlier inspection/model result.
+      await inspectPaperPdf(bytes, name); canceled();
+      const aid = randomUUID(), rel = `papers/${id}/attachments/${aid}.pdf`;
+      entity.id = id; entity.pdfImportFingerprint = fingerprint;
+      entity.attachments = [{ id: aid, name, path: rel, sha256: hash(bytes), size: bytes.byteLength, available: true }];
+      const stage = `state/paper-imports/${randomUUID()}`;
+      let committed = false;
+      try {
+        await this.writeAtomically(`${stage}/attachments/${aid}.pdf`, bytes);
+        if (hash(await readSafe(this.root, `${stage}/attachments/${aid}.pdf`)) !== entity.attachments[0].sha256) throw new AppError('PDF 复制校验失败。');
+        await this.writeAtomically(`${stage}/metadata.json`, serializeEntity(this.withoutLocalState(entity)));
+        parseEntity((await readSafe(this.root, `${stage}/metadata.json`)).toString('utf8'), entityPath(entity));
+        canceled(); await this.assertWriterLock();
+        const target = await safePath(this.root, `papers/${id}`, true);
+        if (await exists(target)) throw new AppError('导入目标已经存在，请重新选择 PDF。', 409, 'PAPER_IMPORT_CONFLICT');
+        const source = await safePath(this.root, stage);
+        canceled(); await this.assertWriterLock(); canceled();
+        await fs.rename(source, target); committed = true;
+        for (const directory of [path.dirname(target), path.dirname(source)]) {
+          try {
+            const handle = await fs.open(directory, 'r');
+            try { await handle.sync(); } finally { await handle.close(); }
+          } catch (error: any) {
+            if (!(process.platform === 'win32' && ['EINVAL', 'ENOTSUP', 'EBADF', 'EPERM', 'EISDIR'].includes(error.code))) throw error;
+          }
+        }
+        await this.updateIndexSafely();
+        return { entity, savedAt: entity.updatedAt, indexStatus: this.indexStatus };
+      } finally {
+        // Once published, an unrelated cleanup failure must not report the committed paper as lost.
+        if (!committed) await fs.rm(await safePath(this.root, stage).catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return path.join(this.root, stage); throw error; }), { recursive: true, force: true });
+      }
+    });
+  }
   async importPdf(id: string, name: string, bytes: Uint8Array, revision: number): Promise<SaveResult> {
     return this.exclusive(async () => {
       const previous = await this.get(id); if (previous.type !== 'paper') throw new AppError('只能给文献添加 PDF'); this.expected(previous, revision);

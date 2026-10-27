@@ -4,6 +4,7 @@ import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { unzipSync, zipSync } from 'fflate';
 import type { BackupManifest } from '../shared/types';
+import { parseTranslationJob } from '../../server/translation-storage';
 
 const MAX_ARCHIVE_BYTES = 512 * 1024 * 1024;
 const MAX_FILE_BYTES = 256 * 1024 * 1024;
@@ -33,6 +34,7 @@ function isAllowedFile(name: string): boolean {
   if (/^notes\/[^/]+\.md$/.test(name)) return true;
   if (/^logs\/[^/]+(?:\/[^/]+)*\.md$/.test(name)) return true;
   if (/^papers\/[^/]+\/metadata\.json$/.test(name)) return true;
+  if (/^papers\/[0-9a-f-]{36}\/translations\/[0-9a-f-]{36}\.json$/i.test(name)) return true;
   if (/^papers\/.+\/attachments\/.+\.pdf$/.test(name)) return true;
   if (/^tasks\/[^/]+\.json$/.test(name) || /^events\/[^/]+\.json$/.test(name)) return true;
   if (/^tombstones\/[^/]+(?:\/[^/]+)*\.json$/.test(name)) return true;
@@ -73,8 +75,12 @@ async function collectFiles(root: string): Promise<Map<string, Uint8Array>> {
         continue;
       }
       if (entry.isSymbolicLink() && ['notes', 'logs', 'papers', 'tasks', 'events', 'tombstones', 'deletion-snapshots', 'conflicts'].includes(safe.split('/')[0])) throw new Error(`unsupported authoritative link: ${safe}`);
-      if (!isAllowedFile(safe)) continue;
+      if (!isAllowedFile(safe)) {
+        if (/^papers\/[^/]+\/translations\//.test(safe) && !safe.endsWith('.tmp')) throw new Error(`unsupported translation file: ${safe}`);
+        continue;
+      }
       const bytes = await readRegularFile(path.join(current, entry.name));
+      if (/^papers\/[^/]+\/translations\//.test(safe)) parseTranslationJob(bytes, safe);
       const key = collisionKey(safe);
       if ([...result.keys()].some(existing => collisionKey(existing) === key)) throw new Error(`duplicate path: ${safe}`);
       total += bytes.byteLength;
@@ -172,6 +178,7 @@ export function verifyBackup(bytes: Uint8Array): { manifest: BackupManifest; fil
     manifestSeen.add(collisionKey(safe));
     const member = unpacked[safe];
     if (!member || member.byteLength !== item.byteSize || sha256(member) !== item.sha256) throw new Error(`checksum mismatch: ${safe}`);
+    if (/^papers\/[^/]+\/translations\//.test(safe)) parseTranslationJob(member, safe);
     files.set(safe, member);
   }
   if (!manifestSeen.has(collisionKey('workspace.json'))) throw new Error('backup manifest must include workspace.json');

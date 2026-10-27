@@ -34,6 +34,8 @@
 - 应用提供完整备份和受校验的恢复流程，恢复目标必须为空目录。
 - 可选 GitHub 同步仅面向笔记、研究日志、文献元数据及必要的冲突/删除文本。PDF、待办、日历、凭据和完整备份不会上传。
 - GitHub 同步默认关闭；连接时需要用户指定专用私人仓库，并明确确认同步范围。
+- 在「资料与设置」配置自己的模型 Base URL、模型名和 API Key，文献识别与全文翻译共用。文献库直接导入 PDF，自动读出标题、作者、年份，核对后保存；详见 [PDF 导入与共享模型](docs/pdf-import.md)。
+- 点击文献即可在应用内阅读原版 PDF；在阅读工具栏开启全文翻译，可接自己的模型 API，支持逐段中英对照、术语表、暂停与继续。仅在主动开始后发送论文文字，译文保存在本地。使用方法与 PDF 提取限制见[阅读与翻译说明](docs/paper-translation.md)。
 
 ## 快速开始
 
@@ -61,9 +63,11 @@ npm run desktop:dev
 | 本地工作区、资料编辑、索引、备份与恢复 | 已实现 |
 | Electron 桌面主进程、原生文件操作与加密凭据保存 | 已实现 |
 | GitHub 文本资料同步 | 可选；默认关闭，真实私人资料仓库演练待完成 |
+| PDF 导入与信息识别 | 先导入 PDF，模型或本地自动识别，核对后保存；集中配置模型 |
+| 文献阅读与全文翻译 | 应用内原版 PDF / 文本阅读；阅读中接入兼容模型 API，译文/进度本地保存，真实模型质量待验收 |
 | Windows 11 实机验收 | 待在目标设备执行；当前 Mac 构建不能代替 Windows 验收 |
 
-当前记录中，单元测试为 **113 项 / 19 个测试文件**，`npm run build` 通过。不同设备、安装权限和 Windows 原生文件关联仍需按[平台验收矩阵](docs/acceptance/platform-matrix.md)逐项实测；本仓库不宣称 Windows 11 已验收。
+2026-09-23 历史基线为 **113 项 / 19 个测试文件**，本轮翻译增量验证见[全文翻译说明](docs/paper-translation.md)。不同设备、安装权限和 Windows 原生文件关联仍需按[平台验收矩阵](docs/acceptance/platform-matrix.md)逐项实测；本仓库不宣称 Windows 11 已验收。
 
 ## 设计与数据说明
 
@@ -79,6 +83,8 @@ npm run desktop:dev
 - [平台与数据验收矩阵](docs/acceptance/platform-matrix.md)
 - [实现记录](docs/implementation-progress.md)
 - [桌面与 GitHub 同步记录](docs/desktop-sync-progress.md)
+- [PDF 导入与共享模型](docs/pdf-import.md)
+- [全文翻译与双语阅读](docs/paper-translation.md)
 
 ## Star History
 

@@ -1,4 +1,4 @@
-import { access, mkdir } from 'node:fs/promises';
+import { access, cp, mkdir } from 'node:fs/promises';
 import { builtinModules } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
@@ -47,6 +47,15 @@ async function main() {
   };
   await build({ ...mainOptions, entryPoints: [path.join(desktopSource, 'main.ts')], outfile: path.join(outputDirectory, 'main.cjs') });
   await build({ ...common, entryPoints: [path.join(desktopSource, 'preload.ts')], outfile: path.join(outputDirectory, 'preload.cjs') });
+  // PDF.js uses an ESM worker and local font/CMap/WASM resources. Keep these
+  // beside the main bundle; electron-builder already includes desktop-dist/**.
+  // Text extraction never instantiates CanvasGraphics or a native canvas.
+  const pdfSource = path.join(projectRoot, 'node_modules', 'pdfjs-dist');
+  const pdfTarget = path.join(outputDirectory, 'pdfjs');
+  await mkdir(pdfTarget, { recursive: true });
+  for (const file of ['pdf.mjs', 'pdf.worker.mjs']) await cp(path.join(pdfSource, 'build', file), path.join(pdfTarget, file));
+  for (const directory of ['cmaps', 'standard_fonts', 'wasm']) await cp(path.join(pdfSource, directory), path.join(pdfTarget, directory), { recursive: true });
+  await cp(path.join(pdfSource, 'LICENSE'), path.join(pdfTarget, 'LICENSE'));
   console.log(`Electron bundle ready: ${path.relative(projectRoot, outputDirectory)}`);
 }
 

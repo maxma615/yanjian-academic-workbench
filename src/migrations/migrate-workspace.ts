@@ -112,10 +112,14 @@ function sameBackupFiles(a: Uint8Array, b: Uint8Array): boolean {
 export class MigrationService {
   private readonly currentVersion: number;
   private readonly converters: Record<number, MigrationConverter>;
+  private readonly defaultCapabilityMigration: boolean;
   private readonly backup: (root: string) => Promise<Uint8Array>;
   constructor(options: MigrationOptions = {}) {
-    this.currentVersion = options.currentVersion ?? 1;
-    this.converters = options.converters ?? {};
+    this.currentVersion = options.currentVersion ?? 2;
+    // v2 marks translation-capable storage. Entity and translation schemas remain
+    // independent; existing bytes and unknown metadata need no conversion.
+    this.converters = options.converters ?? { 1: async value => value };
+    this.defaultCapabilityMigration = options.converters === undefined;
     this.backup = options.createBackup ?? createBackup;
   }
 
@@ -156,7 +160,13 @@ export class MigrationService {
       verifyBackup(new Uint8Array(await fs.readFile(backupPath)));
       await copyTree(sourceRoot, stage);
       for (let version = inspected.schemaVersion; version < targetVersion; version++) {
-        for (const file of await migrationFiles(stage)) {
+        // The built-in v1→v2 transition only changes the workspace capability.
+        // Re-serializing even an identity JSON conversion changes conflict-copy
+        // hashes (for example by appending a newline to a deletion tombstone).
+        const files = this.defaultCapabilityMigration && version === 1
+          ? [path.join(stage, 'workspace.json')]
+          : await migrationFiles(stage);
+        for (const file of files) {
           const relative = path.relative(stage, file).split(path.sep).join('/');
           const source = await fs.readFile(file, 'utf8');
           let value: unknown, body = '';

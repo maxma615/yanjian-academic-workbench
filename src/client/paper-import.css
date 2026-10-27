@@ -1,0 +1,56 @@
+.paper-import-modal { width: min(660px, 100%); max-height: calc(100dvh - 48px); display: flex; flex-direction: column; border-radius: 18px; background: var(--paper); box-shadow: 0 24px 80px #24382d38; outline: none; overflow: hidden; }
+.paper-import-modal.has-file { width: min(1140px, 100%); }
+.paper-import-modal .modal-head { flex: 0 0 auto; align-items: center; }
+.paper-import-modal .modal-head h2 { margin: 0 0 6px; }
+.paper-import-modal .modal-head p { margin: 0; color: var(--muted); font-size: 12px; }
+.paper-import-body { padding: 18px 28px 24px; overflow: auto; min-height: 0; }
+.paper-import-model-note { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; color: var(--muted); font-size: 11px; line-height: 1.65; margin-bottom: 16px; overflow-wrap: anywhere; }
+.paper-import-model-note strong { color: var(--ink); }
+.paper-import-model-note .text-link { margin-left: auto; flex-shrink: 0; }
+.paper-import-file-input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; clip-path: inset(50%); }
+.paper-import-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 38px 18px; border: 1px dashed #a4cbb3; border-radius: 12px; background: #f3f8f3; color: var(--mint-deep); }
+.paper-import-drop h3 { margin: 0; font-size: 18px; font-weight: 600; color: var(--ink); }
+.paper-import-drop p { margin: 0; color: var(--muted); font-size: 12px; text-align: center; line-height: 1.7; }
+.paper-import-drop small { color: var(--muted); font-size: 10px; }
+.paper-import-drop.dragging { border-color: var(--mint-deep); background: #e3f1e7; }
+.paper-import-drop.compact { padding: 12px 14px; flex-direction: row; justify-content: flex-start; gap: 12px; border-style: solid; }
+.paper-import-file-name { min-width: 0; flex: 1; }
+.paper-import-file-name strong { display: block; font-size: 12px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paper-import-file-name span { display: block; color: var(--muted); font-size: 10px; margin-top: 4px; }
+.paper-import-body .form-error { margin-top: 14px; }
+.paper-import-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--mint-deep); font-size: 12px; margin: 18px 0 0; }
+.paper-import-progress span { color: var(--muted); font-size: 11px; }
+.paper-import-review { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(0, 1.2fr); gap: 28px; margin-top: 20px; align-items: start; }
+.paper-import-review h3 { margin: 0 0 15px; font-size: 14px; }
+.paper-import-fields { min-width: 0; }
+.paper-import-fields .field { margin-bottom: 16px; }
+.paper-import-fields .field input { width: 100%; min-width: 0; font-size: 13px; }
+.paper-import-source { color: #6c8c78; font-size: 10px; line-height: 1.5; }
+.paper-import-year { max-width: 175px; }
+.paper-import-additional { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.paper-import-additional summary, .paper-import-extracted summary { padding: 13px 0; font-size: 11px; color: var(--muted); cursor: pointer; }
+.paper-import-additional > div { padding-top: 4px; }
+.paper-import-warnings, .paper-import-model-result { color: #84713d; font-size: 11px; line-height: 1.7; }
+.paper-import-warnings summary { padding: 12px 0 0; cursor: pointer; }
+.paper-import-warnings p { margin: 12px 0 0; }
+.paper-import-model-result { color: var(--mint-deep); margin: -4px 0 14px; }
+.paper-import-extracted p { font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; max-height: 200px; overflow: auto; margin: 0; }
+.paper-import-preview { min-width: 0; }
+.paper-import-preview-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.paper-import-preview-heading h3 { margin: 0; }
+.paper-import-preview-heading > div { display: flex; align-items: center; font-size: 11px; color: var(--muted); }
+.paper-import-preview .pdf-reader-viewport { max-height: 50dvh; min-height: 180px; }
+.paper-import-modal .modal-foot { flex: 0 0 auto; }
+.paper-import-modal button:focus-visible, .paper-import-modal summary:focus-visible { outline: 2px solid var(--mint-deep); outline-offset: 3px; }
+@media (max-width: 760px) {
+  .paper-import-review { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .paper-import-body { padding: 16px; }
+  .paper-import-modal { max-height: calc(100dvh - 16px); }
+  .paper-import-modal .modal-head { padding: 18px 16px; }
+  .paper-import-drop { padding: 28px 12px; }
+  .paper-import-drop.compact { flex-wrap: wrap; }
+  .paper-import-file-name { flex-basis: calc(100% - 40px); }
+  .paper-import-drop.compact > .button { margin-left: 36px; }
+  .paper-import-preview .pdf-reader-viewport { max-height: 55dvh; }
+  .paper-import-modal .modal-foot { padding: 12px 16px; }
+}
